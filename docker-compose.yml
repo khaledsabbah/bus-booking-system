@@ -1,0 +1,47 @@
+version: '3'
+services:
+  php-fpm :
+    container_name: php-fpm
+    build:
+      context: docker/php-fpm
+    volumes:
+      - ./source:/var/www
+      - ./docker/afterInstall.sh:/var/www/afterInstall.sh
+    ports:
+      - 5173:5173
+    command: bash -c "npm run build && ./afterInstall.sh && php-fpm && php artisan config:cache"
+    networks:
+      - internal_template
+  nginx :
+    build:
+      context: docker/nginx
+    ports:
+      - "${PORT_NGINX}:80"
+    volumes:
+      - ./source:/var/www
+    depends_on:
+      - php-fpm
+    links:
+      - mysql_db
+    networks:
+      - internal_template
+  mysql_db :
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: fleet
+    ports:
+      - "${PORT_MYSQL}:3306"
+    volumes:
+      - ./docker/mysql:/var/lib/mysql
+    networks:
+      - internal_template
+networks:
+  internal_template:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.101.1.0/28
